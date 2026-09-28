@@ -1,0 +1,67 @@
+name: build-image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "pi-web-entrypoint.sh"
+      - "assert-image-versions.sh"
+      - ".github/workflows/build-image.yml"
+  workflow_dispatch:
+    inputs:
+      pi_version:
+        description: "Exact @earendil-works/pi-coding-agent version to bake in"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      # Pinned exactly, never a range: PI WEB declares its pi peer dependencies
+      # as `>=0.87.0`, so an unpinned install would silently float. Keep this in
+      # step with the host's `pacman -Q pi-coding-agent-bin`.
+      PI_VERSION: ${{ inputs.pi_version || '0.87.1' }}
+      IMAGE: ghcr.io/laurentlp/pi-web
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Build into the local store first so the version assertions run against
+      # the real image rather than trusting the build args. Nothing is pushed
+      # until they pass.
+      - name: Build for verification
+        run: |
+          docker buildx build --platform linux/amd64 \
+            --build-arg PI_VERSION="${PI_VERSION}" \
+            -t "${IMAGE}:verify" \
+            --load .
+
+      - name: Assert one pi version across the whole image
+        run: ./assert-image-versions.sh "${IMAGE}:verify" "${PI_VERSION}"
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (amd64)
+        env:
+          COMMIT: ${{ github.sha }}
+        run: |
+          SHORT="${COMMIT:0:7}"
+          docker buildx build --platform linux/amd64 \
+            --build-arg PI_VERSION="${PI_VERSION}" \
+            -t "${IMAGE}:latest" \
+            -t "${IMAGE}:pi-${PI_VERSION}" \
+            -t "${IMAGE}:${SHORT}" \
+            --push .
