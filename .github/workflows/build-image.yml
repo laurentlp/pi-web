@@ -1,13 +1,11 @@
 name: build-image
 
+# No push trigger on purpose: only the host knows which pi version the image
+# must bake in (`pacman -Q pi-coding-agent-bin`), and a push cannot pass it. The
+# old push path fell back to a hardcoded 0.87.1 and silently republished :latest
+# on a stale pi. A Dockerfile/entrypoint change is dispatched instead:
+#   gh workflow run build-image.yml -R laurentlp/pi-web -f pi_version=<version>
 on:
-  push:
-    branches: [main]
-    paths:
-      - "Dockerfile"
-      - "pi-web-entrypoint.sh"
-      - "assert-image-versions.sh"
-      - ".github/workflows/build-image.yml"
   workflow_dispatch:
     inputs:
       pi_version:
@@ -26,7 +24,7 @@ jobs:
       # Pinned exactly, never a range: PI WEB declares its pi peer dependencies
       # as `>=0.87.0`, so an unpinned install would silently float. Keep this in
       # step with the host's `pacman -Q pi-coding-agent-bin`.
-      PI_VERSION: ${{ inputs.pi_version || '0.87.1' }}
+      PI_VERSION: ${{ inputs.pi_version }}
       IMAGE: ghcr.io/laurentlp/pi-web
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

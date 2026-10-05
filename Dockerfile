@@ -1,7 +1,13 @@
 FROM node:22-bookworm-slim
 
 ARG PI_WEB_VERSION=latest
-ARG PI_VERSION=0.87.1
+# Required, no default. The previous default (0.87.1) silently baked an old pi
+# into every build that did not pass the arg, which is how :latest drifted from
+# the host while the PiVersionDrift alert fired the whole time. Fail fast:
+ARG PI_VERSION=
+
+RUN test -n "${PI_VERSION}" \
+    || { echo "PI_VERSION build-arg is required (e.g. --build-arg PI_VERSION=1.0.3)"; exit 1; }
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git curl ca-certificates tini python3 make g++ openssh-client procps tmux \
