@@ -18,6 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # defineTool) AND the `pi` CLI that extensions spawn (bin: dist/bundle/cli.js),
 # so a single version satisfies both.
 #
+# The whole family is pinned explicitly, and that is load-bearing: the siblings
+# are declared as caret ranges (^1.0.3), so the day a new sibling ships (1.0.4
+# was published 2026-10-06) a bare install of pi-coding-agent@1.0.3 resolves its
+# family to the NEWER version and produces a mixed-version image. The pin is
+# what keeps pi 1.0.3 reproducible after 1.0.4 exists; assert-image-versions.sh
+# is the guard that catches it if a family member is ever missed here.
+#
 # Installing them in separate `npm install` runs is NOT equivalent: PI WEB
 # declares its pi peer dependencies as `>=0.87.0`, so a second run re-resolves
 # that range against the registry and nests its own copy of the whole pi family
@@ -29,6 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # compiles a native module, hence the toolchain above). Pi itself needs none.
 RUN npm install -g --allow-scripts=node-pty \
       "@earendil-works/pi-coding-agent@${PI_VERSION}" \
+      "@earendil-works/chord@${PI_VERSION}" \
+      "@earendil-works/pi-agent-core@${PI_VERSION}" \
+      "@earendil-works/pi-ai@${PI_VERSION}" \
+      "@earendil-works/pi-codemode@${PI_VERSION}" \
+      "@earendil-works/pi-mcp@${PI_VERSION}" \
+      "@earendil-works/pi-telemetry@${PI_VERSION}" \
+      "@earendil-works/pi-tui@${PI_VERSION}" \
       "@jmfederico/pi-web@${PI_WEB_VERSION}"
 
 COPY pi-web-entrypoint.sh /usr/local/bin/pi-web-entrypoint.sh
